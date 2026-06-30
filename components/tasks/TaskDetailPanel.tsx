@@ -35,7 +35,6 @@ export function TaskDetailPanel({ task }: { task: Task | null }) {
       <section className="px-5 py-3.5">
         <div className="mb-2.5 flex items-start justify-between gap-3">
           <div>
-            <p className="mb-0.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Task Details</p>
             <h2 className="text-2xl font-semibold tracking-tight text-slate-950">{task.title}</h2>
             <p className="mt-0.5 text-xs font-medium tracking-[0.18em] text-slate-400">Task ID: {task.id}</p>
           </div>
@@ -44,6 +43,9 @@ export function TaskDetailPanel({ task }: { task: Task | null }) {
       </section>
       <div className="border-t border-slate-200 lg:grid lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start">
         <div className="px-5 py-4 lg:border-r lg:border-slate-200">
+          <div className="mb-2.5 flex items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-900">Task Details</h3>
+          </div>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-2xl border border-slate-200 bg-white p-3.5 text-sm">
             <div>
               <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">Task Type</dt>
