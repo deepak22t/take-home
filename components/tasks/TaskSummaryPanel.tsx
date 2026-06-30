@@ -41,6 +41,18 @@ export function TaskSummaryPanel({ task }: { task: Task }) {
   const summaryEntry = useAppSelector((state) =>
     state.summary.byTaskId[task.id] ?? { content: "", status: "idle", error: null, updatedAt: null }
   );
+  const statusBadgeClass = useMemo(() => {
+    if (summaryEntry.status === "success") {
+      return "text-emerald-600";
+    }
+    if (summaryEntry.status === "error") {
+      return "text-rose-600";
+    }
+    if (summaryEntry.status === "streaming") {
+      return "text-slate-600";
+    }
+    return "text-slate-500";
+  }, [summaryEntry.status]);
   useEffect(() => {
     const controller = new AbortController();
     dispatch(summaryActions.summaryRequested(task.id));
@@ -78,15 +90,15 @@ export function TaskSummaryPanel({ task }: { task: Task }) {
     return "";
   }, [summaryEntry.error, summaryEntry.status]);
   return (
-    <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-      <div className="mb-3 flex items-center justify-between gap-3">
+    <section className="px-5 py-4">
+      <div className="mb-2.5 flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-900">AI Summary</h3>
-        <span className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-600">{summaryEntry.status}</span>
+        <span className={`inline-flex text-[11px] font-semibold uppercase tracking-[0.16em] ${statusBadgeClass}`}>{summaryEntry.status}</span>
       </div>
       {helperText ? (
-        <p className={`mb-4 text-xs ${summaryEntry.status === "error" ? "text-rose-700" : "text-slate-500"}`}>{helperText}</p>
+        <p className={`mb-3 text-xs ${summaryEntry.status === "error" ? "text-rose-700" : "text-slate-500"}`}>{helperText}</p>
       ) : null}
-      <div className="max-w-none rounded-2xl border border-slate-200 bg-white p-4 text-slate-900 shadow-sm [&_a]:text-blue-700 [&_a]:underline [&_code]:font-mono [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-semibold [&_h2]:mb-3 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-lg [&_h3]:font-semibold [&_li]:my-1 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:mb-3 [&_p]:leading-7 [&_pre]:mb-3 [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:bg-slate-950 [&_pre]:p-4 [&_pre]:text-slate-50 [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:pl-6">
+      <div className="max-w-none rounded-2xl border border-slate-200 bg-white p-3.5 text-slate-900 [&_a]:text-blue-700 [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-slate-200 [&_blockquote]:pl-4 [&_code]:rounded [&_code]:bg-slate-100 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-slate-800 [&_h1]:mb-2.5 [&_h1]:text-2xl [&_h1]:font-semibold [&_h2]:mb-2.5 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-lg [&_h3]:font-semibold [&_li]:my-0.5 [&_ol]:mb-2.5 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:mb-2.5 [&_p]:leading-6 [&_pre]:mb-2.5 [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:border [&_pre]:border-slate-200 [&_pre]:bg-slate-50 [&_pre]:p-3 [&_pre]:text-slate-800 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_ul]:mb-2.5 [&_ul]:list-disc [&_ul]:pl-6">
         {summaryEntry.content ? (
           <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}>
             {summaryEntry.content}

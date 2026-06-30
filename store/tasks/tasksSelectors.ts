@@ -5,6 +5,7 @@ import { tasksAdapterSelectors } from "@/store/tasks/tasksSlice";
 const selectTasksState = (state: RootState) => state.tasks;
 const adapterSelectors = tasksAdapterSelectors;
 export const selectTaskEntities = createSelector(selectTasksState, adapterSelectors.selectEntities);
+export const selectAllTasks = createSelector(selectTasksState, adapterSelectors.selectAll);
 export const selectSelectedTaskId = (state: RootState) => state.tasks.selectedTaskId;
 export const selectTaskListMeta = createSelector(selectTasksState, (tasks) => ({
   loading: tasks.loading,
@@ -21,15 +22,12 @@ export const selectTaskListMeta = createSelector(selectTasksState, (tasks) => ({
   statusFilter: tasks.statusFilter,
   search: tasks.search,
 }));
-export const selectCurrentPageTasks = createSelector(
-  [selectTasksState, selectTaskEntities],
-  (tasksState, entities) => {
-    return tasksState.currentPageIds.map((id) => entities[id]).filter(Boolean) as Task[];
-  }
-);
-export const selectVisibleTasks = createSelector([selectCurrentPageTasks, selectTasksState], (tasks, tasksState) => {
+export const selectFilteredTasks = createSelector([selectAllTasks, selectTasksState], (tasks, tasksState) => {
   const normalizedSearch = tasksState.search.trim().toLowerCase();
   const filtered = tasks.filter((task) => {
+    if (task.isPartial) {
+      return false;
+    }
     const matchesType = tasksState.typeFilter === "all" || task.type === tasksState.typeFilter;
     const matchesStatus = tasksState.statusFilter === "all" || task.status === tasksState.statusFilter;
     const matchesSearch =
@@ -50,6 +48,12 @@ export const selectVisibleTasks = createSelector([selectCurrentPageTasks, select
   });
   return filtered;
 });
+export const selectFilteredTasksTotal = createSelector(selectFilteredTasks, (tasks) => tasks.length);
+export const selectCurrentPageTasks = createSelector([selectFilteredTasks, selectTasksState], (tasks, tasksState) => {
+  const start = (tasksState.page - 1) * tasksState.pageSize;
+  return tasks.slice(start, start + tasksState.pageSize);
+});
+export const selectVisibleTasks = selectCurrentPageTasks;
 export const selectSelectedTask = createSelector(
   [selectTaskEntities, selectSelectedTaskId],
   (entities, selectedTaskId) => (selectedTaskId ? entities[selectedTaskId] ?? null : null)

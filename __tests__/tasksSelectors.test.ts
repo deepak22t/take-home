@@ -1,8 +1,8 @@
-import { selectVisibleTasks } from "@/store/tasks/tasksSelectors";
+import { selectFilteredTasksTotal, selectVisibleTasks } from "@/store/tasks/tasksSelectors";
 import type { RootState } from "@/store";
 const state = {
   tasks: {
-    ids: ["t1", "t2", "t3"],
+    ids: ["t1", "t2", "t3", "t11"],
     entities: {
       t1: {
         id: "t1",
@@ -46,19 +46,33 @@ const state = {
         isPartial: false,
         warnings: [],
       },
+      t11: {
+        id: "t11",
+        title: "Delta image",
+        type: "image",
+        status: "done",
+        rawStatus: "done",
+        assignee: { id: "u4", name: "Diya" },
+        annotationCount: 9,
+        updatedAt: 40,
+        meta: {},
+        rawType: "image",
+        isPartial: false,
+        warnings: [],
+      },
     },
     currentPageIds: ["t1", "t2", "t3"],
     liveTaskIds: [],
     page: 1,
-    pageSize: 20,
-    total: 3,
+    pageSize: 1,
+    total: 4,
     loading: "succeeded",
     error: null,
     selectedTaskId: null,
     search: "",
-    typeFilter: "all",
-    statusFilter: "done",
-    sortBy: "annotationCount",
+    typeFilter: "image",
+    statusFilter: "all",
+    sortBy: "updatedAt",
     sortDirection: "desc",
     hydratedFromCache: false,
     cacheTimestamp: null,
@@ -69,8 +83,9 @@ const state = {
   },
 } as unknown as RootState;
 describe("selectVisibleTasks", () => {
-  it("filters by status and sorts by the active sort key", () => {
+  it("filters across the full loaded dataset before paginating", () => {
     const tasks = selectVisibleTasks(state);
-    expect(tasks.map((task) => task.id)).toEqual(["t2", "t3"]);
+    expect(tasks.map((task) => task.id)).toEqual(["t11"]);
+    expect(selectFilteredTasksTotal(state)).toBe(2);
   });
 });

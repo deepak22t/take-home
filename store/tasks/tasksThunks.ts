@@ -1,5 +1,5 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { fetchTaskById, fetchTasksPage } from "@/lib/api/tasks";
+import { fetchAllTasks, fetchTaskById, fetchTasksPage } from "@/lib/api/tasks";
 import { loadTaskListCache, saveTaskListCache } from "@/lib/storage/taskCache";
 import type { RootState } from "@/store";
 export const hydrateTasksFromCache = createAsyncThunk("tasks/hydrateTasksFromCache", async () => {
@@ -23,6 +23,26 @@ export const fetchTasksPageThunk = createAsyncThunk(
     }
   }
 );
+export const fetchAllTasksThunk = createAsyncThunk("tasks/fetchAllTasks", async (_, { getState, rejectWithValue }) => {
+  try {
+    const state = getState() as RootState;
+    const result = await fetchAllTasks();
+    await saveTaskListCache({
+      items: result.items,
+      page: state.tasks.page,
+      pageSize: state.tasks.pageSize,
+      total: result.total,
+      cachedAt: Date.now(),
+    });
+    return {
+      ...result,
+      page: state.tasks.page,
+      pageSize: state.tasks.pageSize,
+    };
+  } catch (error) {
+    return rejectWithValue(error instanceof Error ? error.message : "Unable to load tasks.");
+  }
+});
 export const fetchTaskByIdThunk = createAsyncThunk(
   "tasks/fetchTaskById",
   async (taskId: string, { rejectWithValue }) => {

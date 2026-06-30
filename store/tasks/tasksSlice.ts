@@ -2,7 +2,7 @@ import { createEntityAdapter, createSlice, type EntityState, type PayloadAction 
 import { createPartialTask, normalizeAssignee, normalizeTaskStatus, normalizeUpdatedAt } from "@/lib/normalize";
 import type { RawAssignee } from "@/lib/types/api";
 import type { SortDirection, SortKey, Task, TaskStatus, TaskType } from "@/lib/types/task";
-import { fetchTaskByIdThunk, fetchTasksPageThunk, hydrateTasksFromCache } from "@/store/tasks/tasksThunks";
+import { fetchAllTasksThunk, fetchTaskByIdThunk, fetchTasksPageThunk, hydrateTasksFromCache } from "@/store/tasks/tasksThunks";
 const tasksAdapter = createEntityAdapter<Task>({
   sortComparer: (left, right) => right.updatedAt - left.updatedAt,
 });
@@ -140,6 +140,23 @@ const tasksSlice = createSlice({
       .addCase(fetchTasksPageThunk.pending, (state) => {
         state.error = null;
         state.loading = state.hydratedFromCache ? "refreshing" : "loading";
+      })
+      .addCase(fetchAllTasksThunk.pending, (state) => {
+        state.error = null;
+        state.loading = state.hydratedFromCache ? "refreshing" : "loading";
+      })
+      .addCase(fetchAllTasksThunk.fulfilled, (state, action) => {
+        tasksAdapter.setAll(state, action.payload.items.map((task) => ({ ...task, isPartial: false })));
+        state.currentPageIds = action.payload.items.map((task) => task.id);
+        state.liveTaskIds = [];
+        state.total = action.payload.total;
+        state.loading = "succeeded";
+        state.lastFreshAt = Date.now();
+        state.error = null;
+      })
+      .addCase(fetchAllTasksThunk.rejected, (state, action) => {
+        state.loading = "failed";
+        state.error = (action.payload as string) ?? action.error.message ?? "Unable to load tasks.";
       })
       .addCase(fetchTasksPageThunk.fulfilled, (state, action) => {
         tasksAdapter.upsertMany(state, action.payload.items.map((task) => ({ ...task, isPartial: false })));

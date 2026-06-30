@@ -53,20 +53,21 @@ export function TaskTable({ tasks }: { tasks: Task[] }) {
   return (
     <div className="space-y-4">
       {showInlineError ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="rounded-2xl border border-amber-200/80 bg-white px-4 py-3 text-sm leading-6 text-amber-800">
           Refresh failed: {meta.error}. Showing the most recent task data that is already in memory.
         </div>
       ) : null}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm shadow-slate-200/40">
+        <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-slate-200 text-sm">
-          <thead className="bg-slate-50/90 text-left text-xs uppercase tracking-wide text-slate-500">
+          <thead className="bg-slate-50/70 text-left text-[11px] uppercase tracking-[0.18em] text-slate-500">
             <tr>
-              <th className="px-4 py-3 font-medium">Task</th>
-              <th className="px-4 py-3 font-medium">Type</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Assignee</th>
-              <th className="px-4 py-3 font-medium">Annotations</th>
-              <th className="px-4 py-3 font-medium">Updated</th>
+              <th className="px-4 py-3.5 font-medium">Task</th>
+              <th className="px-4 py-3.5 font-medium">Type</th>
+              <th className="px-4 py-3.5 font-medium">Status</th>
+              <th className="px-4 py-3.5 font-medium">Assignee</th>
+              <th className="px-4 py-3.5 font-medium">Annotations</th>
+              <th className="px-4 py-3.5 font-medium">Updated</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white">
@@ -76,29 +77,30 @@ export function TaskTable({ tasks }: { tasks: Task[] }) {
                 <tr
                   key={task.id}
                   onClick={() => dispatch(tasksActions.setSelectedTaskId(task.id))}
-                  className={`cursor-pointer transition hover:bg-slate-50 ${isSelected ? "bg-blue-50/70 shadow-[inset_3px_0_0_0_rgb(59,130,246)]" : ""}`}
+                  className={`cursor-pointer transition hover:bg-slate-50/80 ${isSelected ? "bg-slate-50 shadow-[inset_2px_0_0_0_rgb(15,23,42)]" : ""}`}
                 >
-                  <td className="px-4 py-4 align-top">
+                  <td className="px-4 py-4.5 align-middle">
                     <div className="font-medium text-slate-950">{task.title}</div>
-                    <div className="mt-1 text-xs uppercase tracking-wide text-slate-400">{task.id}</div>
+                    <div className="mt-1 text-[11px] font-medium tracking-[0.18em] text-slate-400">{task.id}</div>
                     {task.isPartial ? (
-                      <div className="mt-2 inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-medium text-amber-800">
+                      <div className="mt-2 inline-flex border-l-2 border-amber-400 pl-2 text-[11px] font-medium text-amber-700">
                         Live-only partial task
                       </div>
                     ) : null}
                   </td>
-                  <td className="px-4 py-4 align-top capitalize text-slate-700">{task.type}</td>
-                  <td className="px-4 py-4 align-top">
+                  <td className="px-4 py-4.5 align-middle capitalize text-slate-700">{task.type}</td>
+                  <td className="px-4 py-4.5 align-middle">
                     <StatusBadge status={task.status} />
                   </td>
-                  <td className="px-4 py-4 align-top text-slate-700">{task.assignee?.name ?? "Unassigned"}</td>
-                  <td className="px-4 py-4 align-top font-medium text-slate-900">{task.annotationCount}</td>
-                  <td className="px-4 py-4 align-top text-slate-600">{formatRelativeTime(task.updatedAt)}</td>
+                  <td className="px-4 py-4.5 align-middle text-slate-700">{task.assignee?.name ?? "Unassigned"}</td>
+                  <td className="px-4 py-4.5 align-middle font-semibold text-slate-900">{task.annotationCount}</td>
+                  <td className="px-4 py-4.5 align-middle text-slate-600">{formatRelativeTime(task.updatedAt)}</td>
                 </tr>
               );
             })}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );
