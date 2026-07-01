@@ -8,7 +8,7 @@ import { useTaskFeed } from "@/hooks/useTaskFeed";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectSelectedTask, selectTaskListMeta, selectVisibleTasks } from "@/store/tasks/tasksSelectors";
 import { tasksActions } from "@/store/tasks/tasksSlice";
-import { fetchAllTasksThunk, fetchTaskByIdThunk, hydrateTasksFromCache } from "@/store/tasks/tasksThunks";
+import { fetchTaskByIdThunk, fetchTasksPageThunk, hydrateTasksFromCache } from "@/store/tasks/tasksThunks";
 function formatTimestamp(value: number | null): string {
   if (!value) {
     return "Never";
@@ -31,8 +31,8 @@ export default function Page() {
     if (!hasHydratedCache) {
       return;
     }
-    void dispatch(fetchAllTasksThunk());
-  }, [dispatch, hasHydratedCache]);
+    void dispatch(fetchTasksPageThunk({ page: meta.page, pageSize: meta.pageSize }));
+  }, [dispatch, hasHydratedCache, meta.page, meta.pageSize]);
   useEffect(() => {
     if (!selectedTask && tasks.length > 0) {
       dispatch(tasksActions.setSelectedTaskId(tasks[0].id));

@@ -83,9 +83,9 @@ const state = {
   },
 } as unknown as RootState;
 describe("selectVisibleTasks", () => {
-  it("filters across the full loaded dataset before paginating", () => {
+  it("filters within the current server page (currentPageIds)", () => {
     const tasks = selectVisibleTasks(state);
-    expect(tasks.map((task) => task.id)).toEqual(["t11"]);
-    expect(selectFilteredTasksTotal(state)).toBe(2);
+    expect(tasks.map((task) => task.id)).toEqual(["t1"]);
+    expect(selectFilteredTasksTotal(state)).toBe(1);
   });
 });

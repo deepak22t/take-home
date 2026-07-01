@@ -4,139 +4,128 @@
 
 ### Bug 1: Stale interval state
 
-The clock effect used `setTick(tick + 1)` inside an interval created with an empty dependency array, so the callback captured the initial `tick` value and kept trying to set the same next value. I fixed this by storing the current time and updating it inside the interval, which avoids the stale closure and guarantees a fresh rerender every second.
+The interval callback captured the initial `tick` value because the effect ran only once with an empty dependency array. I fixed it by using a functional state update (`setTick(prev => prev + 1)`), which always receives the latest state without recreating the interval.
 
-### Bug 2: Fetch firing with `selectedId = null`
+***
 
-The selection effect ran on first render and fetched `/api/tasks/null`, which is a bad request and not a meaningful state transition. I added an early return when there is no selection so the detail fetch only runs for a real task id.
+### Bug 2: Fetch with `selectedId = null`
+
+The effect ran on the initial render and requested `/api/tasks/null`, which is not a valid task. I added an early return when `selectedId` is `null` so the fetch only runs for a valid task.
+
+***
 
 ### Bug 3: Missing `apiBase` dependency
 
-The fetch effect depended on `selectedId` but also read `apiBase`, so a prop change could leave the component talking to the old backend. I included `apiBase` in the dependency array so the request source stays consistent with the current props.
+The effect used both `selectedId` and `apiBase`, but only `selectedId` was listed in the dependency array. I added `apiBase` so the effect always uses the latest API endpoint if the prop changes.
 
-### Bug 4: No cancellation or race protection
+***
 
-The original fetch had no cleanup, so fast selection changes or unmounts could allow an older response to win and write stale data into state. I used `AbortController` and cleanup functions so obsolete requests are cancelled and their results are ignored.
+### Bug 4: Missing request cleanup
 
-### Bug 5: State mutation in `setTasks`
+The fetch request had no cleanup, so an older request could finish after a newer one and overwrite fresh data. I used `AbortController` to cancel obsolete requests during cleanup and prevent stale updates.
 
-`prev.push(t); return prev;` mutates React state in place and returns the same array reference, which can prevent rerenders and corrupt previous state assumptions. I replaced it with immutable upsert logic that returns a new array and replaces existing tasks by id instead of mutating the old state.
+***
+
+### Bug 5: State mutation
+
+The code used `prev.push(t)` and returned the same array, directly mutating React state. I replaced it with an immutable update that returns a new array, allowing React to detect the state change correctly.
+
+***
 
 ### Bug 6: In-place sorting during render
 
-`tasks.sort(...)` mutates the source array, which means render code was mutating React state on every render. I fixed this by sorting a copied array inside `useMemo`, so render stays pure and the original state order is never mutated.
+`Array.sort()` mutates the original array, so the component was mutating React state while rendering. I sorted a copied array (`[...tasks].sort(...)`) so rendering remains a pure operation.
 
-### Bug 7: Index keys in a changing list
+***
 
-Using `key={i}` is incorrect for a list that can be resorted or updated because React may reuse the wrong DOM nodes when item order changes. I switched the key to `task.id`, which is stable across inserts, updates, and resorting.
+### Bug 7: Unstable list keys
 
-### Extra Issue I Found: The component had no bootstrap path for recent tasks
-
-As written, the list starts empty and only fetches after clicking an existing item, so there is no way for a user to ever populate the ticker from the UI alone. I added an initial recent-task fetch so the component can actually show recent activity before a selection refresh happens.
-
-<br />
+The component used the array index as the React key even though the list can be reordered. I changed the key to `task.id`, which is stable and prevents incorrect DOM reuse.
 
 # Part 3: Decisions
 
-This document is intentionally short and practical. It focuses on the decisions I made for Part 1, the tradeoffs behind them, and what I would change next.
+This section summarizes the key implementation decisions, their tradeoffs, and what I would improve next.
 
-## State Management
+## State Management (RTK Thunks vs RTK Query)
 
 I used Redux Toolkit with slices, thunks, selectors, and an entity adapter.
 
-- I chose thunks over RTK Query because the screen combines paginated fetches, IndexedDB hydration, websocket merges, selected-task state, and a separate streamed summary lifecycle. I wanted one place to coordinate those flows explicitly.
-- RTK Query would be a good choice for a more standard request/cache setup, but here I would still need custom logic for websocket merges, IndexedDB hydration, and streamed summary state, so the gain would be smaller.
-- The tradeoff is more manual async code. I accepted that because it kept control flow obvious and interview-friendly.
+- I chose thunks over RTK Query because this app coordinates a paginated list fetch, cache hydration, websocket merges, selected-task state, and a separate streamed summary lifecycle. I wanted explicit control over those transitions.
+- RTK Query would work well for a more standard request/cache setup, but I would still need custom logic for websocket merges and the streamed summary, so the gain would be smaller here.
+- Tradeoff: more manual async code, but the control flow stays obvious and easy to explain.
+
+## Pagination and Filtering (Strictly following the mock)
+
+The mock server paginates `/api/tasks`, so the task list is fetched page-wise (not fully loaded).
+
+- Page navigation triggers a request for that page; the UI shows a loading indicator while waiting.
+- Filters/search/sort are applied to the currently loaded page items because the mock API does not support filter/search query params.
+- Tradeoff: better scalability and it matches the prompt’s pagination requirement, but filtering is not global across all tasks without a server-side query API.
 
 ## Normalization and Typing
 
-I treated backend payloads as untrusted and normalized them before they reached the UI.
+I treated backend payloads as untrusted and normalized them before they reached UI components.
 
-- `normalizeTask()` converts raw transport data into a stable internal `Task`.
-- Known fields like `type`, `status`, `annotationCount`, `updatedAt`, `assignee`, and `meta` are normalized to safe values.
-- I preserved `rawType` and `rawStatus` so the app stays honest about what the backend actually sent.
-- I attached warnings to normalized tasks when fields were malformed instead of throwing or silently pretending the data was perfect.
+- `normalizeTask()` converts raw transport data into a stable internal `Task` discriminated union.
+- `type` and `status` are normalized (including inconsistent casing/spelling), while `rawType` and `rawStatus` are preserved so the UI stays honest.
+- Timestamps, counts, `assignee`, and `meta` are narrowed and coerced safely; malformed fields add warnings instead of crashing or silently pretending the data is clean.
 
-The tradeoff is that normalization adds code up front, but it keeps components simpler and prevents the same defensive checks from being repeated throughout the app.
+Tradeoff: extra up-front code, but components stay simple and consistently typed.
 
 ## Realtime Merge Strategy
 
-I merged websocket events into the normalized store instead of refetching the list after every event.
+I merge websocket events into the normalized store instead of refetching the list on every event.
 
 - Known tasks are updated in place.
-- Unknown task ids are allowed as partial entities so realtime events are not dropped.
-- If a partial task becomes relevant, the app fetches the full task in the background.
-- I deliberately do not inject off-page partial tasks into the visible current-page table. They stay in the store, but the table only shows `currentPageIds`.
+- Unknown task ids are allowed as partial entities so events are not dropped; the app can hydrate the full record on demand.
+- The visible table remains tied to `currentPageIds` so off-page live events don’t “teleport” items into the current page view.
 
-The tradeoff is extra reducer complexity, but it avoids unnecessary refetches and keeps pagination behavior trustworthy.
+Tradeoff: reducer logic is more complex, but list paging remains predictable.
 
-## Safe Markdown Rendering
+## Streamed Markdown Safety (exact sanitization point)
 
-The streamed summary is treated as untrusted content.
+The summary stream is untrusted.
 
-- The summary is rendered with `react-markdown`.
-- Markdown support is enabled with `remark-gfm`.
-- Raw HTML passes through `rehype-raw`, but sanitization happens immediately in the same render pipeline with `rehype-sanitize`.
-- The exact sanitization point is `TaskSummaryPanel`, where `ReactMarkdown` is configured with `rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}`.
+- Rendering uses `react-markdown` + `remark-gfm`.
+- Raw HTML is parsed via `rehype-raw` but sanitized immediately via `rehype-sanitize` with an allowlist schema.
+- Sanitization happens in `TaskSummaryPanel` where `ReactMarkdown` is configured with `rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}`.
 
-This allows markdown and code blocks from the server to render, while stripping unsafe HTML such as scripts. I avoided `dangerouslySetInnerHTML`.
+This allows markdown and code blocks while stripping scripts/unsafe HTML. I avoided `dangerouslySetInnerHTML`.
 
-## IndexedDB Caching
+## IndexedDB Caching (stale-while-revalidate)
 
-I used IndexedDB via `localforage` for task-page caching.
+I used IndexedDB via `localforage` to cache the most recently loaded task page.
 
-- I cache the last fetched task page together with `page`, `pageSize`, `total`, and `cachedAt`.
-- On app load, the UI hydrates from cache first.
-- After cache hydration, it immediately revalidates by fetching the current page from the server.
-- Fresh server data replaces cached page ids and updates the entity store.
+- Cached payload includes `items`, `page`, `pageSize`, `total`, and `cachedAt`.
+- On load, the UI hydrates from cache immediately and then revalidates by fetching the current page from the server.
+- To avoid stale-data bugs, the UI labels cached vs fresh timestamps and the list reducer ignores out-of-order page responses (request-id guard).
 
-To reduce stale-data bugs:
+## Messy / Edge Data
 
-- cached data is never treated as final
-- the app records cache and fresh timestamps separately
-- realtime websocket merges still apply after hydration
-- the visible table is controlled by current page ids, not by every entity currently in memory
+Handled:
+- unknown/inconsistent `type` and `status`
+- epoch-ms vs ISO timestamps
+- string vs number counts
+- missing/invalid `assignee` and `meta`
+- websocket events referencing tasks not in the current page
+- streamed summary containing markdown, code blocks, and malicious HTML/script payloads
 
-This is basically a simple stale-while-revalidate approach.
+Deliberately not handled:
+- server-side filtering/search API (mock limitation)
+- cross-tab conflict resolution between cache, websocket events, and refetches
+- full retry/backoff policies for every network path
+- runtime schema validation library for the entire payload surface
 
-## Messy and Edge Data
+## What I’d Do Next
 
-What I handled:
+- If the dataset is small and the API is fixed, I’d consider fetching all tasks once and doing client-side filter/sort/pagination (better filter UX, but not scalable).
+- For larger datasets, I’d add a server query API and keep pagination strict, e.g.:
+  - `/api/tasks?page=1&pageSize=20&type=image&status=done&search=foo&sortBy=updatedAt&sortDir=desc`
+  - and move to cursor pagination if the list grows.
+- Add an integration test for websocket merge behavior and one for page navigation + loading indicator.
 
-- unknown or inconsistent task `type`
-- unknown or inconsistent `status`
-- missing or invalid `assignee`
-- invalid `annotationCount`
-- invalid `updatedAt`
-- invalid `meta`
-- websocket events for tasks not currently loaded
-- streamed summary content containing markdown, code blocks, and unsafe HTML
+## AI Usage and Verification
 
-What I deliberately did not handle:
+I used AI as a coding assistant for iteration and drafting, not as an authority.
 
-- a full conflict-resolution model between cache, websocket events, and refetches across multiple tabs
-- schema validation with a dedicated runtime validation library
-- rich retry/backoff policies for every failing network path
-- persistence of every filtered page combination in IndexedDB
-
-I kept the edge handling focused on the risks that mattered most for Part 1.
-
-## What I Would Do Next
-
-With more time, I would:
-
-- add an integration test around websocket merge behavior
-- add cache expiry and request deduplication
-- tighten runtime validation further, possibly with a schema library
-- improve stream error and retry handling
-- consider RTK Query again if the data-fetching layer became more CRUD-oriented and less custom
-
-## AI Usage
-
-I used AI as a coding assistant for iteration, review, and writing support, but not as an authority.
-
-- I used it to speed up implementation, refactoring, and to help draft tests and documentation.
-- I verified the output by reading the code paths manually, fixing type issues, checking diagnostics, running tests, and comparing behavior against the prompt and mock server behavior.
-- Where AI-generated output was too generic or over-designed, I rewrote it to match the actual project constraints.
-
-I would be comfortable explaining and defending the final code without relying on the AI output.
+- I verified changes by reading the code paths, checking TypeScript diagnostics, running `npm test` and `npm run lint`, and comparing behavior against the prompt and mock server behavior.

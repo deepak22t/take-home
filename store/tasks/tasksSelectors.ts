@@ -13,6 +13,7 @@ export const selectTaskListMeta = createSelector(selectTasksState, (tasks) => ({
   page: tasks.page,
   pageSize: tasks.pageSize,
   total: tasks.total,
+  activeListRequestId: tasks.activeListRequestId,
   hydratedFromCache: tasks.hydratedFromCache,
   cacheTimestamp: tasks.cacheTimestamp,
   lastFreshAt: tasks.lastFreshAt,
@@ -22,7 +23,13 @@ export const selectTaskListMeta = createSelector(selectTasksState, (tasks) => ({
   statusFilter: tasks.statusFilter,
   search: tasks.search,
 }));
-export const selectFilteredTasks = createSelector([selectAllTasks, selectTasksState], (tasks, tasksState) => {
+export const selectCurrentPageTasks = createSelector([selectTaskEntities, selectTasksState], (entities, tasksState) =>
+  tasksState.currentPageIds
+    .map((id) => entities[id])
+    .filter((task): task is Task => Boolean(task))
+);
+
+export const selectFilteredTasks = createSelector([selectCurrentPageTasks, selectTasksState], (tasks, tasksState) => {
   const normalizedSearch = tasksState.search.trim().toLowerCase();
   const filtered = tasks.filter((task) => {
     if (task.isPartial) {
@@ -49,11 +56,7 @@ export const selectFilteredTasks = createSelector([selectAllTasks, selectTasksSt
   return filtered;
 });
 export const selectFilteredTasksTotal = createSelector(selectFilteredTasks, (tasks) => tasks.length);
-export const selectCurrentPageTasks = createSelector([selectFilteredTasks, selectTasksState], (tasks, tasksState) => {
-  const start = (tasksState.page - 1) * tasksState.pageSize;
-  return tasks.slice(start, start + tasksState.pageSize);
-});
-export const selectVisibleTasks = selectCurrentPageTasks;
+export const selectVisibleTasks = selectFilteredTasks;
 export const selectSelectedTask = createSelector(
   [selectTaskEntities, selectSelectedTaskId],
   (entities, selectedTaskId) => (selectedTaskId ? entities[selectedTaskId] ?? null : null)

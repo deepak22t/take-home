@@ -41,6 +41,7 @@ export function TaskTable({ tasks }: { tasks: Task[] }) {
   const showInitialLoading = meta.loading === "loading" && tasks.length === 0;
   const showBlockingError = Boolean(meta.error) && tasks.length === 0;
   const showInlineError = Boolean(meta.error) && tasks.length > 0;
+  const hasActiveFilters = Boolean(meta.search.trim()) || meta.typeFilter !== "all" || meta.statusFilter !== "all";
   if (showInitialLoading) {
     return <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center text-sm text-slate-500">Loading tasks...</div>;
   }
@@ -48,7 +49,13 @@ export function TaskTable({ tasks }: { tasks: Task[] }) {
     return <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">Failed to load tasks: {meta.error}</div>;
   }
   if (tasks.length === 0) {
-    return <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center text-sm text-slate-500">No tasks match the current filters.</div>;
+    return (
+      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center text-sm text-slate-500">
+        {hasActiveFilters
+          ? "No tasks on this page match the current filters. Try another page or clear filters."
+          : "No tasks are available."}
+      </div>
+    );
   }
   return (
     <div className="space-y-4">
